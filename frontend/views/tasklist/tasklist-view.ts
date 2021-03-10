@@ -60,6 +60,7 @@ export class TasklistView extends View {
     const saved = await this.binder.submitTo(saveTodo);
     if (saved) {
       this.todos = [...this.todos, saved];
+      this.binder.clear();
     }
   }
 }
