@@ -14,25 +14,44 @@ import {
   ConnectionState,
   ConnectionStateChangeListener,
 } from "@vaadin/flow-frontend/ConnectionState";
+import { nothing } from "lit-html";
 
 @customElement("tasklist-view")
 export class TasklistView extends View {
   @internalProperty()
   private todos: Todo[] = [];
+  @internalProperty()
+  private offline = false;
+
   private binder = new Binder(this, TodoModel);
 
   async connectedCallback() {
     super.connectedCallback();
     this.todos = await getTodos();
+
+    const connectionState = (window as any).Vaadin
+      .connectionState as ConnectionStateStore;
+    connectionState.addStateChangeListener(
+      (_: ConnectionState, current: ConnectionState) => {
+        this.offline = current === ConnectionState.CONNECTION_LOST;
+      }
+    );
   }
 
   render() {
     return html`
+      ${this.offline
+        ? html` <p>You are offline, save not available.</p> `
+        : nothing}
       <div class="form">
         <vaadin-text-field
+          ?disabled=${this.offline}
           ...=${field(this.binder.model.task)}
         ></vaadin-text-field>
-        <vaadin-button theme="primary" @click=${this.saveTodo}
+        <vaadin-button
+          theme="primary"
+          @click=${this.saveTodo}
+          ?disabled=${this.offline}
           >Add</vaadin-button
         >
       </div>
@@ -43,6 +62,7 @@ export class TasklistView extends View {
             <div class="todo">
               <vaadin-checkbox
                 .checked=${todo.done}
+                ?disabled=${this.offline}
                 @checked-changed=${(e: CheckboxCheckedChanged) => {
                   todo.done = e.detail.value;
                   saveTodo(todo);
