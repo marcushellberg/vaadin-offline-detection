@@ -20,30 +20,23 @@ export class TasklistView extends View {
   @internalProperty()
   private todos: Todo[] = [];
   @internalProperty()
+  private pending: Todo[] = [];
+  @internalProperty()
   private offline = false;
 
   private binder = new Binder(this, TodoModel);
 
   render() {
     return html`
-      ${this.offline
-        ? html` <p>You are offline, save not available.</p> `
-        : nothing}
       <div class="form">
         <vaadin-text-field
-          ?disabled=${this.offline}
           ...=${field(this.binder.model.task)}
         ></vaadin-text-field>
-        <vaadin-button
-          theme="primary"
-          @click=${this.submit}
-          ?disabled=${this.offline}
-          >Add</vaadin-button
-        >
+        <vaadin-button theme="primary" @click=${this.submit}>Add</vaadin-button>
       </div>
 
       <div class="todos">
-        ${this.todos.map(
+        ${this.allTodos.map(
           (todo) => html`
             <div class="todo">
               <vaadin-checkbox
@@ -62,6 +55,10 @@ export class TasklistView extends View {
         )}
       </div>
     `;
+  }
+
+  get allTodos() {
+    return this.todos.concat(this.pending);
   }
 
   async connectedCallback() {
@@ -87,7 +84,15 @@ export class TasklistView extends View {
       }
     } catch (e) {
       console.log(e);
+      if (this.offline) {
+        this.pending = [...this.pending, todo];
+      }
     }
+  }
+
+  syncPending() {
+    this.pending.forEach((todo) => this.saveTodo(todo));
+    this.pending = [];
   }
 
   setupConnectionListener() {
@@ -98,6 +103,7 @@ export class TasklistView extends View {
         // Don't react to LOADING state
         if (this.offline && current === ConnectionState.CONNECTED) {
           this.offline = false;
+          this.syncPending();
         } else if (current === ConnectionState.CONNECTION_LOST) {
           this.offline = true;
         }
