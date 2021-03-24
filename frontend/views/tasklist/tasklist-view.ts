@@ -6,13 +6,12 @@ import "@vaadin/vaadin-button";
 import "@vaadin/vaadin-checkbox";
 import Todo from "Frontend/generated/com/example/application/data/entity/Todo";
 import { CheckboxCheckedChanged } from "@vaadin/vaadin-checkbox";
-import { getTodos, saveTodo } from "Frontend/generated/TodoEndpoint";
+import * as endpoint from "Frontend/generated/TodoEndpoint";
 import TodoModel from "Frontend/generated/com/example/application/data/entity/TodoModel";
 import { Binder, field } from "@vaadin/flow-frontend/form";
 import {
   ConnectionStateStore,
   ConnectionState,
-  ConnectionStateChangeListener,
 } from "@vaadin/flow-frontend/ConnectionState";
 import { nothing } from "lit-html";
 
@@ -24,19 +23,6 @@ export class TasklistView extends View {
   private offline = false;
 
   private binder = new Binder(this, TodoModel);
-
-  async connectedCallback() {
-    super.connectedCallback();
-    this.todos = await getTodos();
-
-    const connectionState = (window as any).Vaadin
-      .connectionState as ConnectionStateStore;
-    connectionState.addStateChangeListener(
-      (_: ConnectionState, current: ConnectionState) => {
-        this.offline = current === ConnectionState.CONNECTION_LOST;
-      }
-    );
-  }
 
   render() {
     return html`
@@ -50,7 +36,7 @@ export class TasklistView extends View {
         ></vaadin-text-field>
         <vaadin-button
           theme="primary"
-          @click=${this.saveTodo}
+          @click=${this.submit}
           ?disabled=${this.offline}
           >Add</vaadin-button
         >
@@ -64,8 +50,10 @@ export class TasklistView extends View {
                 .checked=${todo.done}
                 ?disabled=${this.offline}
                 @checked-changed=${(e: CheckboxCheckedChanged) => {
-                  todo.done = e.detail.value;
-                  saveTodo(todo);
+                  if (todo.done !== e.detail.value) {
+                    todo.done = e.detail.value;
+                    this.saveTodo(todo);
+                  }
                 }}
               ></vaadin-checkbox>
               <span class="task">${todo.task}</span>
@@ -76,11 +64,44 @@ export class TasklistView extends View {
     `;
   }
 
-  async saveTodo() {
-    const saved = await this.binder.submitTo(saveTodo);
-    if (saved) {
-      this.todos = [...this.todos, saved];
-      this.binder.clear();
+  async connectedCallback() {
+    super.connectedCallback();
+    this.todos = await endpoint.getTodos();
+    this.setupConnectionListener();
+  }
+
+  async submit() {
+    await this.binder.submitTo(this.saveTodo);
+    this.binder.clear();
+  }
+
+  async saveTodo(todo: Todo) {
+    try {
+      const saved = await endpoint.saveTodo(todo);
+      if (saved) {
+        if (todo.id) {
+          this.todos = this.todos.map((t) => (t.id === saved.id ? saved : t));
+        } else {
+          this.todos = [...this.todos, saved];
+        }
+      }
+    } catch (e) {
+      console.log(e);
     }
+  }
+
+  setupConnectionListener() {
+    const connectionState = (window as any).Vaadin
+      .connectionState as ConnectionStateStore;
+    connectionState.addStateChangeListener(
+      (_: ConnectionState, current: ConnectionState) => {
+        // Don't react to LOADING state
+        if (this.offline && current === ConnectionState.CONNECTED) {
+          this.offline = false;
+        } else if (current === ConnectionState.CONNECTION_LOST) {
+          this.offline = true;
+        }
+      }
+    );
   }
 }

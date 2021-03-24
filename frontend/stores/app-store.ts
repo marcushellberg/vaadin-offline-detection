@@ -1,13 +1,13 @@
-import { RouterLocation } from '@vaadin/router';
-import { makeAutoObservable } from 'mobx';
+import { RouterLocation } from "@vaadin/router";
+import { makeAutoObservable } from "mobx";
 
 export class AppStore {
-  applicationName = 'Do stuff';
+  applicationName = "Do stuff";
 
   // The location, relative to the base path, e.g. "hello" when viewing "/hello"
-  location = '';
+  location = "";
 
-  currentViewTitle = '';
+  currentViewTitle = "";
 
   constructor() {
     makeAutoObservable(this);
@@ -21,7 +21,7 @@ export class AppStore {
     } else {
       this.location = location.pathname;
     }
-    this.currentViewTitle = (location?.route as any)?.title || '';
+    this.currentViewTitle = (location?.route as any)?.title || "";
   }
 }
 export const appStore = new AppStore();
